@@ -276,8 +276,9 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const preloadedBooks = [ { name: "在线书籍示例", url: "https://files.catbox.moe/y91f7r.txt", category: "我的书架" } ];
-        // === 修改：增加 replacements 数组用于存储净化规则 ===
-        const settings = { fontFamily: "'-apple-system', 'sans-serif'", fontSize: 20, lineHeight: 1.8, contentPadding: 20, theme: 'light', layout: 'scroll', customFonts: [], customBgs: [], replacements: [], books: {}, readingProgress: {}, bookmarks: {} };
+        // === 修改：增加 bookEncodings 用于记忆每本书的编码 ===
+        const settings = { fontFamily: "'-apple-system', 'sans-serif'", fontSize: 20, lineHeight: 1.8, contentPadding: 20, theme: 'light', layout: 'scroll', customFonts: [], customBgs: [], replacements: [], bookEncodings: {}, books: {}, readingProgress: {}, bookmarks: {} };
+        // === 修改结束 ===
         // === 修改结束 ===
         // === 修改结束 ===
         
@@ -401,6 +402,16 @@
                         await processEpubContent(arrayBuffer); 
                     } else { 
                         currentTxtFileBuffer = arrayBuffer;
+                        
+                        // === 新增：如果这本书之前存过编码，自动应用 ===
+                        if (settings.bookEncodings && settings.bookEncodings[url]) {
+                            $('#encoding-select').value = settings.bookEncodings[url];
+                        } else {
+                            // 没存过则默认自动
+                            $('#encoding-select').value = 'auto';
+                        }
+                        // === 新增结束 ===
+
                         await processTxtContent();
                     }
                     if (name) addBookToLibrary(name, url, category);
@@ -526,7 +537,42 @@
         }
         
         function cleanupPreviousBook() { if (saveInterval) { clearInterval(saveInterval); saveInterval = null; } txtContent.innerHTML = ''; epubContent.innerHTML = ''; $('#toc-list').innerHTML = ''; txtChapterAnchors = []; searcher = { results: [], currentIndex: -1, originalTxtContent: '' }; updateSearchUI(); if (rendition) { rendition.destroy(); book = null; rendition = null; } currentBookUrl = null; currentEpubChapterIndex = -1; currentTxtFileBuffer = null; txtPages = []; currentTxtPageIndex = 0; fullTxtHtml = ''; updateProgress(0); }
-        async function processTxtContent() { if (!currentTxtFileBuffer) return; currentBookType = 'txt'; applyAllSettings(); let text; const selectedEncoding = $('#encoding-select').value; try { const detection = jschardet.detect(new Uint8Array(currentTxtFileBuffer)); const finalEncoding = selectedEncoding === 'auto' ? (detection.encoding ? detection.encoding.toLowerCase() : 'utf-8') : selectedEncoding; text = new TextDecoder(finalEncoding.includes('gb') ? 'gbk' : finalEncoding).decode(currentTxtFileBuffer); } catch(e) { text = `文件解码失败。请尝试手动选择其他编码格式。`; txtContent.innerHTML = `<p>${text}</p>`; return; } $('#welcome-message')?.remove(); generateTxtTocAndContent(text); if (settings.layout === 'paginate') { await paginateAndDisplayTxt(); } else { txtContent.innerHTML = fullTxtHtml; txtContentWrapper.scrollTo(0, 0); } loadLastPosition(); }
+        async function processTxtContent() { 
+            if (!currentTxtFileBuffer) return; 
+            currentBookType = 'txt'; 
+            applyAllSettings(); 
+            let text; 
+            const selectedEncoding = $('#encoding-select').value; 
+            
+            try { 
+                const detection = jschardet.detect(new Uint8Array(currentTxtFileBuffer)); 
+                const finalEncoding = selectedEncoding === 'auto' ? (detection.encoding ? detection.encoding.toLowerCase() : 'utf-8') : selectedEncoding; 
+                text = new TextDecoder(finalEncoding.includes('gb') ? 'gbk' : finalEncoding).decode(currentTxtFileBuffer); 
+                
+                // === 新增：解码成功后，保存这本书的编码设置 ===
+                if (currentBookUrl) {
+                    settings.bookEncodings[currentBookUrl] = selectedEncoding;
+                    saveSettings();
+                }
+                // === 新增结束 ===
+
+            } catch(e) { 
+                text = `文件解码失败。请尝试手动选择其他编码格式。`; 
+                txtContent.innerHTML = `<p>${text}</p>`; 
+                return; 
+            } 
+            
+            $('#welcome-message')?.remove(); 
+            generateTxtTocAndContent(text); 
+            
+            if (settings.layout === 'paginate') { 
+                await paginateAndDisplayTxt(); 
+            } else { 
+                txtContent.innerHTML = fullTxtHtml; 
+                txtContentWrapper.scrollTo(0, 0); 
+            } 
+            loadLastPosition(); 
+        }
                 // === 修改：修复“每页只显示一段”的 Bug ===
         async function paginateAndDisplayTxt() {
             if (isPaginating || !fullTxtHtml) return;
@@ -845,7 +891,56 @@
         // === 新增结束 ===
 
         $('#theme-buttons').addEventListener('click', (e) => { if(e.target.tagName === 'BUTTON') { settings.theme = e.target.dataset.theme; applyAllSettings(); saveSettings(); } });
-        $('#layout-buttons').addEventListener('click', async (e) => { if(e.target.tagName === 'BUTTON') { settings.layout = e.target.dataset.layout; if (rendition) rendition.flow(settings.layout === 'scroll' ? 'scrolled-doc' : 'paginated'); if (currentBookType === 'txt') { if (settings.layout === 'paginate') { await paginateAndDisplayTxt(); } else { txtContent.innerHTML = fullTxtHtml; } } applyAllSettings(); saveSettings(); } });
+        $('#layout-buttons').addEventListener('click', async (e) => { 
+            if(e.target.tagName === 'BUTTON') { 
+                const newLayout = e.target.dataset.layout;
+                if (settings.layout === newLayout) return; // 点击当前模式不做反应
+
+                // === 新增：切换前计算当前阅读进度百分比 (0.0 - 1.0) ===
+                let currentRatio = 0;
+                if (currentBookType === 'txt') {
+                    if (settings.layout === 'scroll') {
+                        // 滚动模式下：当前滚动位置 / (总高度 - 视口高度)
+                        const totalScroll = txtContentWrapper.scrollHeight - txtContentWrapper.clientHeight;
+                        currentRatio = totalScroll > 0 ? txtContentWrapper.scrollTop / totalScroll : 0;
+                    } else {
+                        // 翻页模式下：当前页码 / 总页数
+                        currentRatio = txtPages.length > 1 ? currentTxtPageIndex / (txtPages.length - 1) : 0;
+                    }
+                }
+                // === 新增结束 ===
+
+                settings.layout = newLayout; 
+                
+                if (rendition) rendition.flow(settings.layout === 'scroll' ? 'scrolled-doc' : 'paginated'); 
+                
+                if (currentBookType === 'txt') { 
+                    if (settings.layout === 'paginate') { 
+                        await paginateAndDisplayTxt(); 
+                    } else { 
+                        txtContent.innerHTML = fullTxtHtml; 
+                    } 
+                } 
+                
+                applyAllSettings(); 
+                saveSettings(); 
+
+                // === 新增：切换后根据百分比恢复位置 ===
+                if (currentBookType === 'txt') {
+                    if (settings.layout === 'scroll') {
+                        // 恢复滚动位置
+                        const targetScroll = currentRatio * (txtContentWrapper.scrollHeight - txtContentWrapper.clientHeight);
+                        txtContentWrapper.scrollTop = targetScroll;
+                    } else {
+                        // 恢复页码
+                        const targetPage = Math.round(currentRatio * (txtPages.length - 1));
+                        displayTxtPage(targetPage);
+                    }
+                    updateTxtProgress(); // 更新底部进度条
+                }
+                // === 新增结束 ===
+            } 
+        });
         $('#add-font-btn').addEventListener('click', () => loadAndAddFont($('#custom-font-name').value.trim(), $('#custom-font-url').value.trim()));
         
         // === 修改：字体上传改为存入 IndexedDB ===
