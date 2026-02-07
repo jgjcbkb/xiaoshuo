@@ -17,7 +17,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jschardet@3.0.0/dist/jschardet.min.js"></script>
     <style>
         :root {
-            --font-size: 20px; --line-height: 1.8; --main-bg-color: #f5f5dc;
+            /* 增加 --content-padding 变量 */
+            --font-size: 20px; --line-height: 1.8; --content-padding: 20px; --main-bg-color: #f5f5dc;
             --main-text-color: #333; --panel-bg-color: rgba(255, 255, 255, 0.95);
             --panel-border-color: #ddd; --button-bg-color: #f0f0f0; --button-hover-bg-color: #e0e0e0;
             --link-color: #007bff; --overlay-color: rgba(245, 245, 220, 0.85); --highlight-color: #ffec3d;
@@ -50,14 +51,39 @@
             line-height: var(--line-height);
             text-align: justify;
         }
+        
+        /* === 新增：左右翻页模式下，增加上下安全距离，防止遮挡 === */
+        body.paginate-mode #reader-container {
+            top: 70px;   /* 顶部下移，避开书签/搜索按钮 */
+            bottom: 90px; /* 底部上移，避开上一页/下一页按钮 */
+        }
+        /* === 新增结束 === */
+
         /* === 修改结束 === */
         
-        #txt-content-wrapper, #epub-content { width: calc(90% - 40px); height: 100%; padding: 0 20px; margin: 0 5%; box-sizing: content-box; }
+        /* === 修改：修复左右边距不对称 === */
+        /* width: 100% 配合 border-box，让 padding 向内挤压，保证左右绝对对称 */
+        #txt-content-wrapper, #epub-content { 
+            width: 100%; 
+            height: 100%; 
+            padding: 0 var(--content-padding); 
+            margin: 0 auto; 
+            box-sizing: border-box; 
+        }
         #epub-content { position: absolute; top: 0; padding: 0; }
+        /* === 修改结束 === */
         body.scroll-mode #txt-content-wrapper { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 50vh; }
         body.scroll-mode .pagination-controls { display: none; }
         body.paginate-mode #txt-content-wrapper { overflow: hidden; }
-        body.paginate-mode #txt-content { height: 100%; }
+        
+        /* === 修改：给底部增加 20px 的防切割安全区 === */
+        body.paginate-mode #txt-content { 
+            height: 100%; 
+            box-sizing: border-box; /* 确保内边距算在高度内 */
+            padding-bottom: 20px;   /* 关键：底部留白，防止最后一行被切 */
+        }
+        /* === 修改结束 === */
+
         body.paginate-mode .pagination-controls { display: flex; }
         .pagination-controls { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: space-between; align-items: center; pointer-events: none; z-index: 20; }
         .pagination-controls > div { width: 25%; height: 100%; cursor: pointer; pointer-events: auto; }
@@ -67,9 +93,13 @@
         #toc-toggle { left: 20px; } #toc-panel { left: 0; transform: translateX(-100%); } #toc-panel.open { transform: translateX(0); }
         #library-toggle { left: 70px; } #library-panel { left: 0; transform: translateX(-100%); } #library-panel.open { transform: translateX(0); }
         #bookmarks-toggle { left: 120px; } #bookmarks-panel { left: 0; transform: translateX(-100%); } #bookmarks-panel.open { transform: translateX(0); }
-        #search-toggle { top: 70px; right: 20px; font-size: 20px; }
+        /* === 修改：搜索按钮移到顶部，位于设置按钮左侧 === */
+        #search-toggle { right: 70px; font-size: 20px; }
+        /* === 修改结束 === */
         .settings-group { margin-bottom: 25px; border-bottom: 1px solid var(--panel-border-color); padding-bottom: 15px; }
-        .control-row, .button-group { display: flex; align-items: center; margin-bottom: 10px; }
+        /* === 修改：增加 gap 属性，让按钮上下左右都有间距 === */
+        .control-row, .button-group { display: flex; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+        /* === 修改结束 === */
         .control-row label { margin-right: 10px; }
         .control-row input, .control-row select { flex-grow: 1; margin-right: 10px; padding: 8px; border: 1px solid var(--panel-border-color); background-color: var(--main-bg-color); color: var(--main-text-color); border-radius: 4px; }
         .control-row button, .button-group button, .file-label { padding: 8px 12px; border: 1px solid var(--panel-border-color); background-color: var(--button-bg-color); color: var(--main-text-color); cursor: pointer; border-radius: 4px; transition: background-color 0.2s; white-space: nowrap; }
@@ -80,6 +110,12 @@
         .book-item-info { flex-grow: 1; cursor: pointer; }
         .book-item-actions button { margin-left: 5px; font-size: 14px; padding: 2px 6px; }
         .bookmark-item a { flex-grow: 1; text-decoration: none; color: var(--main-text-color); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* === 新增：净化规则列表样式 === */
+        .replace-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--panel-border-color); font-size: 14px; }
+        .replace-item span { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; color: #d32f2f; }
+        /* === 新增结束 === */
+
         #toc-list li.active-toc-item > a { color: var(--link-color); font-weight: bold; }
         #toc-list li.active-toc-item { background-color: var(--active-item-bg); }
         #bottom-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: var(--panel-bg-color); border-top: 1px solid var(--panel-border-color); box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 999; display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; }
@@ -98,6 +134,45 @@
         #welcome-message { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; text-align: center; font-size: 1.2em; color: #888; }
         mark { background-color: var(--highlight-color); color: black; }
         .chapter-title { display: block; font-weight: bold; margin-top: 1.5em; margin-bottom: 1em; }
+                /* === 新增：TXT 3D 翻页动画效果 === */
+        #txt-content-wrapper {
+            perspective: 2000px; /* 增加 3D 视距，数值越大透视越小 */
+            overflow: hidden;    /* 确保翻页时不出现滚动条 */
+        }
+        
+        #txt-content {
+            transform-style: preserve-3d; /* 开启 3D 空间 */
+            backface-visibility: hidden;  /* 背面不可见 */
+            transform-origin: left center; /* 默认左侧为轴 */
+        }
+
+        /* 向下翻页（翻开下一页）：旧页向左翻走，新页从右翻入 */
+        .anim-next-out { animation: flipNextOut 0.4s ease-in forwards; }
+        .anim-next-in  { animation: flipNextIn 0.4s ease-out forwards; }
+
+        /* 向上翻页（翻回上一页）：旧页向右翻走，新页从左翻入 */
+        .anim-prev-out { animation: flipPrevOut 0.4s ease-in forwards; }
+        .anim-prev-in  { animation: flipPrevIn 0.4s ease-out forwards; }
+
+        @keyframes flipNextOut {
+            0% { transform: rotateY(0deg); opacity: 1; }
+            100% { transform: rotateY(-90deg); opacity: 0.5; }
+        }
+        @keyframes flipNextIn {
+            0% { transform: rotateY(90deg); opacity: 0.5; }
+            100% { transform: rotateY(0deg); opacity: 1; }
+        }
+
+        @keyframes flipPrevOut {
+            0% { transform: rotateY(0deg); opacity: 1; }
+            100% { transform: rotateY(90deg); opacity: 0.5; }
+        }
+        @keyframes flipPrevIn {
+            0% { transform: rotateY(-90deg); opacity: 0.5; }
+            100% { transform: rotateY(0deg); opacity: 1; }
+        }
+        /* === 新增结束 === */
+
     </style>
 </head>
 <body>
@@ -141,10 +216,44 @@
                 </select>
             </div>
         </div>
-        <div class="settings-group"><h3>显示设置</h3><div class="control-row"><select id="font-select"></select></div><div class="control-row"><button id="decrease-font-btn">-</button><span id="font-size-display">20px</span><button id="increase-font-btn">+</button></div></div>
+        <div class="settings-group">
+            <h3>显示设置</h3>
+            <div class="control-row"><select id="font-select"></select></div>
+            <div class="control-row"><button id="decrease-font-btn">-</button><span id="font-size-display">20px</span><button id="increase-font-btn">+</button></div>
+            <!-- 新增行距和边距控制 -->
+            <div class="control-row"><label>行距:</label><input type="range" id="line-height-input" min="1.0" max="3.0" step="0.1" value="1.8"><span id="line-height-val">1.8</span></div>
+            <div class="control-row"><label>边距:</label><input type="range" id="padding-input" min="0" max="100" step="5" value="20"><span id="padding-val">20</span></div>
+        </div>
         <div class="settings-group"><h3>自定义字体</h3><div class="control-row"><input type="text" id="custom-font-name" placeholder="字体名称"><input type="text" id="custom-font-url" placeholder="字体文件链接"></div><div class="control-row"><button id="add-font-btn" style="width:50%; margin-right:5px;">添加链接字体</button><input type="file" id="font-file-input" accept=".ttf,.otf,.woff,.woff2"><label for="font-file-input" class="file-label" style="width:50%;">本地字体</label></div></div>
-        <div class="settings-group"><h3>背景主题</h3><div class="button-group" id="theme-buttons" style="flex-wrap: wrap; justify-content: space-between;"><button data-theme="light">日间</button><button data-theme="sepia">护眼</button><button data-theme="dark">夜间</button><button data-theme="paper">纸质</button><button data-theme="green">绿意</button><button data-theme="blue">商务</button><button data-theme="rose">玫瑰</button><button data-theme="mint">薄荷</button><button data-theme="lavender">薰衣</button><button data-theme="slate">石板</button><button data-theme="solarized">亮金</button><button data-theme="midnight">午夜</button></div></div>
+        <!-- === 修改：删除了不需要的主题，去掉了 style === -->
+        <div class="settings-group">
+            <h3>背景主题</h3>
+            <div class="button-group" id="theme-buttons">
+                <button data-theme="light">日间</button>
+                <button data-theme="sepia">护眼</button>
+                <button data-theme="green">绿意</button>
+                <button data-theme="blue">商务</button>
+                <button data-theme="rose">玫瑰</button>
+                <button data-theme="mint">薄荷</button>
+                <button data-theme="lavender">薰衣</button>
+                <button data-theme="slate">石板</button>
+            </div>
+        </div>
+        <!-- === 修改结束 === -->
         <div class="settings-group"><h3>自定义背景</h3><div class="control-row"><select id="bg-select"></select><button id="delete-bg-btn" style="min-width: 40px;">🗑️</button></div><div class="control-row"><input type="text" id="bg-url-input" placeholder="输入图片链接"><button id="add-bg-url-btn">添加</button></div><div class="control-row"><input type="file" id="bg-file-input" accept="image/*"><label for="bg-file-input" class="file-label">添加本地图片</label></div></div>
+        
+        <!-- === 新增：内容净化面板 === -->
+        <div class="settings-group">
+            <h3>内容净化 (自动删除)</h3>
+            <div class="control-row">
+                <input type="text" id="replace-input" placeholder="输入要去除的文字或广告">
+                <button id="add-replace-btn">添加规则</button>
+            </div>
+            <ul id="replace-list" style="list-style: none; padding: 0; margin: 0;"></ul>
+            <div style="font-size: 12px; color: #888; margin-top: 5px;">* 修改后需重新加载书籍生效</div>
+        </div>
+        <!-- === 新增结束 === -->
+
         <div class="settings-group"><h3>翻页模式</h3><div class="button-group" id="layout-buttons"><button data-layout="scroll">上下滚动</button><button data-layout="paginate">左右翻页</button></div></div>
     </div>
     <div id="search-toggle" class="panel-toggle">🔍</div><div id="search-bar"><input type="text" id="search-input" placeholder="搜索..."><button id="search-prev-btn">↑</button><button id="search-next-btn">↓</button><span id="search-results-count">0 / 0</span></div>
@@ -167,7 +276,10 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const preloadedBooks = [ { name: "在线书籍示例", url: "https://files.catbox.moe/y91f7r.txt", category: "我的书架" } ];
-        const settings = { fontFamily: "'Source Han Serif CN', serif", fontSize: 20, theme: 'paper', layout: 'scroll', customFonts: [], customBgs: [], books: {}, readingProgress: {}, bookmarks: {} };
+        // === 修改：增加 replacements 数组用于存储净化规则 ===
+        const settings = { fontFamily: "'-apple-system', 'sans-serif'", fontSize: 20, lineHeight: 1.8, contentPadding: 20, theme: 'light', layout: 'scroll', customFonts: [], customBgs: [], replacements: [], books: {}, readingProgress: {}, bookmarks: {} };
+        // === 修改结束 ===
+        // === 修改结束 ===
         
         const $ = (s) => document.querySelector(s); const $$ = (s) => document.querySelectorAll(s);
         const body = document.body; const readerContainer = $('#reader-container'); const txtContentWrapper = $('#txt-content-wrapper'); const txtContent = $('#txt-content'); const epubContent = $('#epub-content'); const progressSlider = $('#progress-slider'); const progressPercent = $('#progress-percent'); const fontSelect = $('#font-select'); const bgSelect = $('#bg-select');
@@ -196,6 +308,11 @@
                     if (!db.objectStoreNames.contains('localBooks')) {
                         db.createObjectStore('localBooks', { keyPath: 'url' });
                     }
+                    // === 新增：创建字体存储表 ===
+                    if (!db.objectStoreNames.contains('localFonts')) {
+                        db.createObjectStore('localFonts', { keyPath: 'name' });
+                    }
+                    // === 新增结束 ===
                 };
             });
         }
@@ -229,7 +346,30 @@
                 request.onerror = (event) => reject('从数据库删除书籍失败:', event.target.error);
             });
         }
+
+        // === 新增：字体数据库操作函数 ===
+        function saveFontToDB(fontData) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['localFonts'], 'readwrite');
+                const store = transaction.objectStore('localFonts');
+                const request = store.put(fontData);
+                request.onsuccess = () => resolve();
+                request.onerror = (event) => reject('保存字体失败:', event.target.error);
+            });
+        }
+
+        function getAllFontsFromDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['localFonts'], 'readonly');
+                const store = transaction.objectStore('localFonts');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (event) => reject('读取字体失败:', event.target.error);
+            });
+        }
         // === 新增结束 ===
+
+        // === 新增结束 === (注意：这里保留原有的注释闭合，或者直接接下面的代码)
 
         const proxyList = [ 'https://api.allorigins.win/raw?url=', 'https://cors.eu.org/' ];
         async function fetchWithProxy(url, options = { timeout: 15000 }) { for (let i = 0; i < proxyList.length; i++) { const proxyUrl = `${proxyList[i]}${encodeURIComponent(url)}`; try { const response = await fetchWithTimeout(proxyUrl, options); if (!response.ok) throw new Error(`代理服务器响应状态: ${response.status}`); return response; } catch (error) { console.error(`代理 ${proxyList[i]} 失败.`, error.name === 'AbortError' ? '请求超时.' : error.message); } } throw new Error('所有内容代理均失败。服务可能暂时不可用，或链接无效。'); }
@@ -277,8 +417,99 @@
 
         async function performSearch(query) { if (!query) { clearSearch(); return; } showLoading(true, "正在全文搜索..."); setTimeout(async () => { try { searcher.results = []; if (currentBookType === 'txt') { const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); let match; while ((match = regex.exec(searcher.originalTxtContent)) !== null) { searcher.results.push(match.index); } highlightTxtSearch(query); } else if (book) { const spineResults = await Promise.all( book.spine.items.map(item => item.load(book.load.bind(book)).then(doc => item.find(query)).finally(() => item.unload())) ); searcher.results = [].concat.apply([], spineResults); rendition.annotations.remove(query, "highlight"); searcher.results.forEach(res => { rendition.annotations.highlight(res.cfi, {}, null, "hl", { "fill": "yellow", "fill-opacity": "0.3" }); }); } searcher.currentIndex = searcher.results.length > 0 ? 0 : -1; navigateToMatch(0); } catch (error) { console.error("搜索失败:", error); alert("搜索时发生未知错误。"); } finally { updateSearchUI(); showLoading(false); } }, 50); }
         const saveSettings = () => localStorage.setItem('readerSettings', JSON.stringify(settings));
-        function loadSettings() { const saved = localStorage.getItem('readerSettings'); if (saved) { Object.assign(settings, JSON.parse(saved)); } ['books', 'readingProgress', 'bookmarks', 'customFonts', 'customBgs'].forEach(key => { if (!settings[key]) settings[key] = Array.isArray(settings[key]) ? [] : {}; }); if (preloadedBooks.length > 0 && Object.keys(settings.books).every(cat => settings.books[cat].length === 0)) { preloadedBooks.forEach(book => { const category = book.category || '未分类'; if (!settings.books[category]) settings.books[category] = []; if (!settings.books[category].some(b => b.url === book.url)) { settings.books[category].push({ name: book.name, url: book.url }); } }); saveSettings(); } populateFontSelect(); populateBgSelect(); renderLibrary(); applyAllSettings(); }
-        function applyFontSettings() { const oldFontSize = settings.fontSize; document.documentElement.style.setProperty('--font-size', `${settings.fontSize}px`); readerContainer.style.fontFamily = settings.fontFamily; if (rendition) { rendition.themes.fontSize(`${settings.fontSize}px`); rendition.themes.font(settings.fontFamily); } $('#font-size-display').textContent = `${settings.fontSize}px`; $('#font-select').value = settings.fontFamily; if (oldFontSize !== settings.fontSize && currentBookType === 'txt' && settings.layout === 'paginate') { paginateAndDisplayTxt(); } }
+        function loadSettings() { 
+            const saved = localStorage.getItem('readerSettings'); 
+            if (saved) { Object.assign(settings, JSON.parse(saved)); } 
+            
+            // 确保 replacements 数组存在
+            ['books', 'readingProgress', 'bookmarks', 'customFonts', 'customBgs', 'replacements'].forEach(key => { 
+                if (!settings[key]) settings[key] = Array.isArray(settings[key]) ? [] : {}; 
+            }); 
+
+            if (preloadedBooks.length > 0 && Object.keys(settings.books).every(cat => settings.books[cat].length === 0)) { 
+                preloadedBooks.forEach(book => { 
+                    const category = book.category || '未分类'; 
+                    if (!settings.books[category]) settings.books[category] = []; 
+                    if (!settings.books[category].some(b => b.url === book.url)) { 
+                        settings.books[category].push({ name: book.name, url: book.url }); 
+                    } 
+                }); 
+                saveSettings(); 
+            } 
+            
+            populateFontSelect(); 
+            populateBgSelect(); 
+            renderLibrary(); 
+            applyAllSettings();
+            
+            // === 新增：渲染净化规则列表 ===
+            renderReplacements();
+            // === 新增结束 ===
+        }
+
+        // === 新增：净化规则相关函数 ===
+        function renderReplacements() {
+            const list = $('#replace-list');
+            list.innerHTML = '';
+            settings.replacements.forEach((rule, index) => {
+                list.innerHTML += `
+                    <li class="replace-item">
+                        <span>${rule}</span>
+                        <button onclick="deleteReplacement(${index})" style="padding: 2px 6px;">✖</button>
+                    </li>`;
+            });
+        }
+
+        window.deleteReplacement = (index) => {
+            settings.replacements.splice(index, 1);
+            saveSettings();
+            renderReplacements();
+        };
+
+        $('#add-replace-btn').addEventListener('click', () => {
+            const input = $('#replace-input');
+            const val = input.value.trim();
+            if (val && !settings.replacements.includes(val)) {
+                settings.replacements.push(val);
+                saveSettings();
+                renderReplacements();
+                input.value = '';
+                alert('规则已添加。请重新打开书籍或刷新页面以应用净化。');
+            }
+        });
+        // === 新增结束 ===
+        function applyFontSettings() { 
+            const oldFontSize = settings.fontSize; 
+            
+            // 应用字体大小
+            document.documentElement.style.setProperty('--font-size', `${settings.fontSize}px`); 
+            
+            // === 新增：应用行距和边距 ===
+            document.documentElement.style.setProperty('--line-height', settings.lineHeight);
+            document.documentElement.style.setProperty('--content-padding', `${settings.contentPadding}px`);
+            
+            // 更新界面显示数值
+            $('#line-height-input').value = settings.lineHeight;
+            $('#line-height-val').textContent = settings.lineHeight;
+            $('#padding-input').value = settings.contentPadding;
+            $('#padding-val').textContent = settings.contentPadding;
+            // === 新增结束 ===
+
+            readerContainer.style.fontFamily = settings.fontFamily; 
+            
+            if (rendition) { 
+                rendition.themes.fontSize(`${settings.fontSize}px`); 
+                rendition.themes.font(settings.fontFamily); 
+                // Epub.js 可能需要单独设置行距，但通常继承 CSS
+            } 
+            
+            $('#font-size-display').textContent = `${settings.fontSize}px`; 
+            $('#font-select').value = settings.fontFamily; 
+            
+            if (oldFontSize !== settings.fontSize && currentBookType === 'txt' && settings.layout === 'paginate') { 
+                paginateAndDisplayTxt(); 
+            } 
+        }
         
         function applyAllSettings() {
             applyFontSettings();
@@ -296,8 +527,168 @@
         
         function cleanupPreviousBook() { if (saveInterval) { clearInterval(saveInterval); saveInterval = null; } txtContent.innerHTML = ''; epubContent.innerHTML = ''; $('#toc-list').innerHTML = ''; txtChapterAnchors = []; searcher = { results: [], currentIndex: -1, originalTxtContent: '' }; updateSearchUI(); if (rendition) { rendition.destroy(); book = null; rendition = null; } currentBookUrl = null; currentEpubChapterIndex = -1; currentTxtFileBuffer = null; txtPages = []; currentTxtPageIndex = 0; fullTxtHtml = ''; updateProgress(0); }
         async function processTxtContent() { if (!currentTxtFileBuffer) return; currentBookType = 'txt'; applyAllSettings(); let text; const selectedEncoding = $('#encoding-select').value; try { const detection = jschardet.detect(new Uint8Array(currentTxtFileBuffer)); const finalEncoding = selectedEncoding === 'auto' ? (detection.encoding ? detection.encoding.toLowerCase() : 'utf-8') : selectedEncoding; text = new TextDecoder(finalEncoding.includes('gb') ? 'gbk' : finalEncoding).decode(currentTxtFileBuffer); } catch(e) { text = `文件解码失败。请尝试手动选择其他编码格式。`; txtContent.innerHTML = `<p>${text}</p>`; return; } $('#welcome-message')?.remove(); generateTxtTocAndContent(text); if (settings.layout === 'paginate') { await paginateAndDisplayTxt(); } else { txtContent.innerHTML = fullTxtHtml; txtContentWrapper.scrollTo(0, 0); } loadLastPosition(); }
-        async function paginateAndDisplayTxt() { if (isPaginating || !fullTxtHtml) return; isPaginating = true; showLoading(true, "正在计算页面..."); await new Promise(resolve => setTimeout(resolve, 50)); const container = txtContentWrapper; const content = txtContent; const availableHeight = container.clientHeight; txtPages = []; content.innerHTML = ''; const tempContainer = document.createElement('div'); tempContainer.innerHTML = fullTxtHtml; const allNodes = Array.from(tempContainer.childNodes); for (const node of allNodes) { content.appendChild(node.cloneNode(true)); if (content.scrollHeight > availableHeight) { content.removeChild(content.lastChild); txtPages.push(content.innerHTML); content.innerHTML = ''; content.appendChild(node.cloneNode(true)); } } if (content.innerHTML) { txtPages.push(content.innerHTML); } isPaginating = false; showLoading(false); const progress = settings.readingProgress[currentBookUrl]; let pageToShow = 0; if (progress && progress.type === 'txt' && progress.layout === 'paginate') { pageToShow = progress.pos || 0; } displayTxtPage(pageToShow); }
-        function displayTxtPage(pageIndex) { if (pageIndex < 0 || pageIndex >= txtPages.length) return; currentTxtPageIndex = pageIndex; txtContent.innerHTML = txtPages[currentTxtPageIndex]; updateTxtProgress(); }
+                // === 修改：修复“每页只显示一段”的 Bug ===
+        async function paginateAndDisplayTxt() {
+            if (isPaginating || !fullTxtHtml) return;
+            isPaginating = true;
+            showLoading(true, "正在重新排版...");
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const container = txtContentWrapper;
+            const content = txtContent;
+            
+            // 1. 临时移除 CSS 限制，确保 scrollHeight 能够反应真实文字高度
+            const originalHeight = content.style.height;
+            const originalPadding = content.style.paddingBottom;
+            content.style.height = 'auto'; 
+            content.style.paddingBottom = '0px'; 
+            
+            // 计算可用高度（容器高度 - 上下内边距）
+            // 注意：这里要获取 container 的高度，预留底部安全距离
+            const containerStyle = window.getComputedStyle(container);
+            // 减去 30px 是为了保险，给底部留出足够的防切割空间
+            const availableHeight = container.clientHeight - parseFloat(containerStyle.paddingTop) - parseFloat(containerStyle.paddingBottom) - 30;
+            
+            txtPages = [];
+            content.innerHTML = '';
+            
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = fullTxtHtml;
+            const nodes = Array.from(tempDiv.children);
+
+            let currentPageNodes = [];
+
+            const savePage = () => {
+                content.innerHTML = '';
+                currentPageNodes.forEach(n => content.appendChild(n));
+                txtPages.push(content.innerHTML);
+                content.innerHTML = '';
+                currentPageNodes = [];
+            };
+
+            for (let i = 0; i < nodes.length; i++) {
+                let node = nodes[i];
+                content.appendChild(node.cloneNode(true));
+                currentPageNodes.push(node.cloneNode(true));
+
+                // 检查是否溢出
+                if (content.scrollHeight > availableHeight) {
+                    content.removeChild(content.lastChild);
+                    currentPageNodes.pop();
+
+                    if (currentPageNodes.length > 0) {
+                        savePage();
+                        i--; 
+                        continue;
+                    }
+
+                    // 长段落拆分逻辑
+                    const text = node.innerText;
+                    const tagName = node.tagName;
+                    let low = 0, high = text.length;
+                    let bestSplitIndex = 0;
+                    
+                    while (low <= high) {
+                        let mid = Math.floor((low + high) / 2);
+                        let testNode = document.createElement(tagName);
+                        testNode.innerText = text.substring(0, mid);
+                        if(node.className) testNode.className = node.className;
+                        
+                        content.appendChild(testNode);
+                        if (content.scrollHeight <= availableHeight) {
+                            bestSplitIndex = mid;
+                            low = mid + 1;
+                        } else {
+                            high = mid - 1;
+                        }
+                        content.removeChild(testNode);
+                    }
+
+                    if (bestSplitIndex > 0) {
+                        let part1 = document.createElement(tagName);
+                        part1.innerText = text.substring(0, bestSplitIndex);
+                        if(node.className) part1.className = node.className;
+                        currentPageNodes.push(part1);
+                        savePage();
+
+                        let part2 = document.createElement(tagName);
+                        part2.innerText = text.substring(bestSplitIndex);
+                        if(node.className) part2.className = node.className;
+                        nodes.splice(i + 1, 0, part2);
+                    } else {
+                        currentPageNodes.push(node.cloneNode(true));
+                        savePage();
+                    }
+                }
+            }
+
+            if (currentPageNodes.length > 0) {
+                savePage();
+            }
+
+            // 2. 恢复 CSS 样式
+            content.style.height = originalHeight;
+            content.style.paddingBottom = originalPadding;
+
+            isPaginating = false;
+            showLoading(false);
+
+            const progress = settings.readingProgress[currentBookUrl];
+            let pageToShow = 0;
+            if (progress && progress.type === 'txt' && progress.layout === 'paginate') {
+                pageToShow = progress.pos || 0;
+            }
+            displayTxtPage(pageToShow);
+        }
+        // === 修改结束 ===
+
+        let isAnimating = false; // 防止狂点按钮导致动画错乱
+
+        function displayTxtPage(pageIndex, direction = 'none') {
+            if (pageIndex < 0 || pageIndex >= txtPages.length) return;
+            if (isAnimating) return; // 如果正在翻页，忽略点击
+
+            // 如果不是翻页模式，或者没有方向（比如通过目录跳转），直接显示
+            if (settings.layout !== 'paginate' || direction === 'none') {
+                currentTxtPageIndex = pageIndex;
+                txtContent.innerHTML = txtPages[currentTxtPageIndex];
+                updateTxtProgress();
+                return;
+            }
+
+            isAnimating = true;
+            const content = $('#txt-content');
+
+            // 1. 根据方向设置旋转轴（左翻还是右翻）
+            if (direction === 'next') {
+                content.style.transformOrigin = 'left center';
+                content.className = 'anim-next-out'; // 播放“翻出去”动画
+            } else {
+                content.style.transformOrigin = 'right center';
+                content.className = 'anim-prev-out';
+            }
+
+            // 2. 动画播放一半（400ms）后，切换文字内容，然后播放“翻进来”
+            setTimeout(() => {
+                currentTxtPageIndex = pageIndex;
+                txtContent.innerHTML = txtPages[currentTxtPageIndex];
+                updateTxtProgress();
+
+                if (direction === 'next') {
+                    content.className = 'anim-next-in';
+                } else {
+                    content.className = 'anim-prev-in';
+                }
+
+                // 3. 动画彻底结束后，清理 class
+                setTimeout(() => {
+                    content.className = '';
+                    isAnimating = false;
+                }, 400); // 对应 CSS 中的 duration
+
+            }, 400); // 对应 CSS 中的 duration
+        }
+        // === 修改结束 ===
         async function processEpubContent(arrayBuffer) { currentBookType = 'epub'; applyAllSettings(); book = ePub(arrayBuffer); rendition = book.renderTo("epub-content", { width: "100%", height: "100%", flow: settings.layout === 'scroll' ? 'scrolled-doc' : 'paginated' }); rendition.on("displayed", () => applyFontSettings()); rendition.on("relocated", (location) => { currentLocation = location; updateEpubProgress(); updateActiveTocItem(); }); await book.ready; await book.locations.generate(1650); await rendition.display(); generateEpubToc(); loadLastPosition(); }
         function highlightTxtSearch(query) { const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'); const chapterRegex = /^\s*(第[一二三四五六七八九十百千万零\d\s]+[章节回部卷])(.*)$/gm; const escapedText = searcher.originalTxtContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); let highlightedText = escapedText.replace(regex, `<mark>$1</mark>`); let chapterIndex = 0; highlightedText = highlightedText.replace(chapterRegex, (full, title, rest) => `<span class="chapter-title" id="toc-ch-${chapterIndex++}">${(title + rest).trim()}</span>`); txtContent.innerHTML = highlightedText; }
         function clearSearch() { if (currentBookType === 'txt') { generateTxtTocAndContent(searcher.originalTxtContent); } else if (rendition) { rendition.annotations.remove(); } searcher = { results: [], currentIndex: -1, originalTxtContent: searcher.originalTxtContent }; updateSearchUI(); }
@@ -306,7 +697,44 @@
         function renderLibrary() { const list = $('#library-list'); list.innerHTML = ''; for (const category in settings.books) { if (settings.books[category] && settings.books[category].length > 0) { list.innerHTML += `<li class="category-title" style="font-weight:bold; margin-top:10px;">${category}</li>`; settings.books[category].forEach(book => { list.innerHTML += `<li class="book-item"><span class="book-item-info" data-url="${book.url}">${book.name}</span><div class="book-item-actions"><button class="edit-book-btn" data-url="${book.url}" title="编辑">✏️</button><button class="delete-book-btn" data-url="${book.url}" title="删除">✖</button></div></li>`; }); } } }
         function addBookToLibrary(name, url, category = '未分类') { if (!settings.books[category]) settings.books[category] = []; if (!Object.values(settings.books).flat().some(b => b.url === url)) { settings.books[category].push({ name, url }); saveSettings(); renderLibrary(); } }
         async function deleteBookFromLibrary(url) { if (!confirm('确定要删除这本书吗？(进度和书签也会被删除)')) return; if (url.startsWith('local-')) { await deleteBookFromDB(url); } for (const cat in settings.books) { settings.books[cat] = settings.books[cat].filter(b => b.url !== url); } delete settings.readingProgress[url]; delete settings.bookmarks[url]; saveSettings(); renderLibrary(); }
-        function generateTxtTocAndContent(text) { const chapterRegex = /^\s*(第[一二三四五六七八九十百千万零\d\s]+[章节回部卷])(.*)$/; searcher.originalTxtContent = text; const lines = text.replace(/\r/g, '').split('\n'); let chapterIndex = 0; let finalHtml = ''; txtChapterAnchors = []; for (const line of lines) { const trimmedLine = line.trim(); if (chapterRegex.test(trimmedLine)) { const anchorId = `toc-ch-${chapterIndex++}`; finalHtml += `<span class="chapter-title" id="${anchorId}">${trimmedLine}</span>`; txtChapterAnchors.push({ id: `#${anchorId}`, text: trimmedLine, index: chapterIndex - 1 }); } else if (trimmedLine.length > 0) { let paragraph = trimmedLine; if (!paragraph.startsWith('　　')) { paragraph = '　　' + paragraph; } finalHtml += `<p>${paragraph}</p>`; } } fullTxtHtml = finalHtml; if (txtChapterAnchors.length > 0) { $('#toc-list').innerHTML = txtChapterAnchors.map(t => `<li data-index="${t.index}"><a href="${t.id}">${t.text}</a></li>`).join(''); } else { $('#toc-list').innerHTML = '<li>未检测到章节。</li>'; } }
+        function generateTxtTocAndContent(text) { 
+            // === 新增：应用净化规则 ===
+            if (settings.replacements && settings.replacements.length > 0) {
+                console.log("正在执行内容净化...");
+                settings.replacements.forEach(rule => {
+                    // 全局替换，将目标文字替换为空字符串
+                    // 使用 split+join 是最简单且不容易出错的全局替换方法
+                    text = text.split(rule).join('');
+                });
+            }
+            // === 新增结束 ===
+
+            const chapterRegex = /^\s*(第[一二三四五六七八九十百千万零\d\s]+[章节回部卷])(.*)$/; 
+            searcher.originalTxtContent = text; 
+            const lines = text.replace(/\r/g, '').split('\n'); 
+            let chapterIndex = 0; 
+            let finalHtml = ''; 
+            txtChapterAnchors = []; 
+            
+            for (const line of lines) { 
+                const trimmedLine = line.trim(); 
+                if (chapterRegex.test(trimmedLine)) { 
+                    const anchorId = `toc-ch-${chapterIndex++}`; 
+                    finalHtml += `<span class="chapter-title" id="${anchorId}">${trimmedLine}</span>`; 
+                    txtChapterAnchors.push({ id: `#${anchorId}`, text: trimmedLine, index: chapterIndex - 1 }); 
+                } else if (trimmedLine.length > 0) { 
+                    let paragraph = trimmedLine; 
+                    if (!paragraph.startsWith('　　')) { paragraph = '　　' + paragraph; } 
+                    finalHtml += `<p>${paragraph}</p>`; 
+                } 
+            } 
+            fullTxtHtml = finalHtml; 
+            if (txtChapterAnchors.length > 0) { 
+                $('#toc-list').innerHTML = txtChapterAnchors.map(t => `<li data-index="${t.index}"><a href="${t.id}">${t.text}</a></li>`).join(''); 
+            } else { 
+                $('#toc-list').innerHTML = '<li>未检测到章节。</li>'; 
+            } 
+        }
         function generateEpubToc() { book.loaded.navigation.then(nav => { $('#toc-list').innerHTML = nav.toc.map((item, i) => `<li data-index="${i}"><a href="${item.href}">${item.label.trim()}</a></li>`).join(''); }); }
         function updateActiveTocItem() { $$('#toc-list li').forEach(li => li.classList.remove('active-toc-item')); if (currentBookType === 'epub' && book && book.navigation && book.navigation.toc) { if (!currentLocation) return; const currentSpineItem = book.spine.get(currentLocation.start.href); if (!currentSpineItem) return; let bestMatchIndex = -1; for (let i = 0; i < book.navigation.toc.length; i++) { const tocSpineItem = book.spine.get(book.navigation.toc[i].href); if (tocSpineItem && tocSpineItem.index <= currentSpineItem.index) { bestMatchIndex = i; } else if (tocSpineItem && tocSpineItem.index > currentSpineItem.index) { break; } } currentEpubChapterIndex = bestMatchIndex; if(currentEpubChapterIndex > -1) { $(`#toc-list li[data-index="${currentEpubChapterIndex}"]`)?.classList.add('active-toc-item'); } } else if (currentBookType === 'txt' && txtChapterAnchors.length > 0) { const currentScroll = txtContentWrapper.scrollTop; let activeIndex = -1; for (let i = txtChapterAnchors.length - 1; i >= 0; i--) { if (txtChapterAnchors[i].offsetTop <= currentScroll + txtContentWrapper.clientHeight / 2) { activeIndex = i; break; } } if (activeIndex > -1) { $(`#toc-list li[data-index="${activeIndex}"]`)?.classList.add('active-toc-item'); } } }
         function navigateChapter(direction) { if (currentBookType === 'epub' && book && rendition) { const toc = book.navigation.toc; if (!toc || toc.length === 0 || currentEpubChapterIndex === -1) return; const targetIndex = currentEpubChapterIndex + direction; if (targetIndex >= 0 && targetIndex < toc.length) { rendition.display(toc[targetIndex].href); } } else if (currentBookType === 'txt' && txtChapterAnchors.length > 0 && settings.layout === 'scroll') { const currentScroll = txtContentWrapper.scrollTop; let targetAnchorEl = null; if (direction > 0) { targetAnchorEl = Array.from($$('.chapter-title')).find(el => el.offsetTop > currentScroll + 5); } else { const prevAnchors = Array.from($$('.chapter-title')).filter(el => el.offsetTop < currentScroll - 5); targetAnchorEl = prevAnchors.length > 0 ? prevAnchors[prevAnchors.length - 1] : null; } if (targetAnchorEl) { targetAnchorEl.scrollIntoView({ behavior: 'smooth' }); } } }
@@ -322,9 +750,35 @@
         function updateTxtProgress() { let p = 0; if (settings.layout === 'scroll') { const { scrollTop, scrollHeight, clientHeight } = txtContentWrapper; p = scrollHeight > clientHeight ? Math.round((scrollTop / (scrollHeight - clientHeight)) * 100) : 100; } else { p = txtPages.length > 1 ? Math.round((currentTxtPageIndex / (txtPages.length - 1)) * 100) : 100; } updateProgress(isNaN(p) ? 0 : p); updateActiveTocItem(); }
         function updateEpubProgress() { if (!book || !book.locations || !currentLocation || !book.locations.ready) return; updateProgress(Math.round(book.locations.percentageFromCfi(currentLocation.start.cfi) * 100)); }
         function onProgressSliderChange() { const p = parseInt(progressSlider.value, 10); if (currentBookType === 'txt') { if (settings.layout === 'scroll') { txtContentWrapper.scrollTop = (txtContentWrapper.scrollHeight - txtContentWrapper.clientHeight) * (p / 100); } else { const targetPage = Math.round((p / 100) * (txtPages.length - 1)); displayTxtPage(targetPage); } } else if (rendition && book && book.locations) { if (!book.locations.ready) return; rendition.display(book.locations.cfiFromPercentage(p / 100)); } }
-        const nextPage = () => { if (settings.layout === 'paginate') { if (currentBookType === 'txt') { displayTxtPage(currentTxtPageIndex + 1); } else if (rendition) { rendition.next(); } } };
-        const prevPage = () => { if (settings.layout === 'paginate') { if (currentBookType === 'txt') { displayTxtPage(currentTxtPageIndex - 1); } else if (rendition) { rendition.prev(); } } };
-        function populateFontSelect() { const defaultFonts = [ { name: "系统默认", value: "'-apple-system', 'sans-serif'" }, { name: "思源宋体", value: "'Source Han Serif CN', serif" }, { name: "霞鹜文楷", value: "'LXGW WenKai', sans-serif'" } ]; fontSelect.innerHTML = defaultFonts.map(f => `<option value="${f.value}">${f.name}</option>`).join(''); settings.customFonts.forEach(f => loadAndAddFont(f.name, f.url, false)); }
+        // === 修改：翻页时传入方向参数 ===
+        const nextPage = () => { 
+            if (settings.layout === 'paginate') { 
+                if (currentBookType === 'txt') { 
+                    displayTxtPage(currentTxtPageIndex + 1, 'next'); 
+                } else if (rendition) { 
+                    rendition.next(); 
+                } 
+            } 
+        };
+        const prevPage = () => { 
+            if (settings.layout === 'paginate') { 
+                if (currentBookType === 'txt') { 
+                    displayTxtPage(currentTxtPageIndex - 1, 'prev'); 
+                } else if (rendition) { 
+                    rendition.prev(); 
+                } 
+            } 
+        };
+        // === 修改结束 ===
+        // === 修改：只保留系统默认字体 ===
+        function populateFontSelect() { 
+            const defaultFonts = [ 
+                { name: "系统默认", value: "'-apple-system', 'sans-serif'" } 
+            ]; 
+            fontSelect.innerHTML = defaultFonts.map(f => `<option value="${f.value}">${f.name}</option>`).join(''); 
+            settings.customFonts.forEach(f => loadAndAddFont(f.name, f.url, false)); 
+        }
+        // === 修改结束 ===
         function loadAndAddFont(name, url, save = true) { if (!name || !url) return alert('请输入字体名称和URL/文件。'); const styleId = `custom-font-${name.replace(/\s/g, '-')}`; if ($(`#${styleId}`)) { fontSelect.value = `'${name}'`; fontSelect.dispatchEvent(new Event('change')); return; } const style = document.createElement('style'); style.id = styleId; style.textContent = `@font-face { font-family: '${name}'; src: url('${url}'); }`; document.head.appendChild(style); const option = new Option(name, `'${name}'`); fontSelect.add(option); option.selected = true; fontSelect.dispatchEvent(new Event('change')); if(save && url.startsWith('http')) { settings.customFonts.push({ name, url }); saveSettings(); } }
         function populateBgSelect() { bgSelect.innerHTML = '<option value="default">默认主题背景</option>'; settings.customBgs.forEach(bg => bgSelect.add(new Option(bg.name, bg.name))); }
         function addCustomBg(name, url, save = true) { if(!name || !url) return; if(settings.customBgs.some(b => b.name === name)) return alert('该名称的背景已存在。'); settings.customBgs.push({name, url, active: false}); if(save) saveSettings(); populateBgSelect(); bgSelect.value = name; bgSelect.dispatchEvent(new Event('change')); }
@@ -361,10 +815,64 @@
         fontSelect.addEventListener('change', (e) => { settings.fontFamily = e.target.value; applyFontSettings(); saveSettings(); });
         $('#increase-font-btn').addEventListener('click', () => { settings.fontSize = Math.min(40, settings.fontSize + 1); applyFontSettings(); saveSettings(); });
         $('#decrease-font-btn').addEventListener('click', () => { settings.fontSize = Math.max(12, settings.fontSize - 1); applyFontSettings(); saveSettings(); });
+        
+        // === 新增：行距和边距的监听事件 ===
+        $('#line-height-input').addEventListener('input', (e) => {
+            settings.lineHeight = e.target.value;
+            $('#line-height-val').textContent = settings.lineHeight;
+            applyFontSettings();
+        });
+        $('#line-height-input').addEventListener('change', async () => {
+            saveSettings();
+            // 如果是 TXT 翻页模式，改变行距需要重新排版
+            if (currentBookType === 'txt' && settings.layout === 'paginate') {
+                await paginateAndDisplayTxt();
+            }
+        });
+
+        $('#padding-input').addEventListener('input', (e) => {
+            settings.contentPadding = e.target.value;
+            $('#padding-val').textContent = settings.contentPadding;
+            applyFontSettings();
+        });
+        $('#padding-input').addEventListener('change', async () => {
+            saveSettings();
+            // 如果是 TXT 翻页模式，改变边距需要重新排版
+            if (currentBookType === 'txt' && settings.layout === 'paginate') {
+                await paginateAndDisplayTxt();
+            }
+        });
+        // === 新增结束 ===
+
         $('#theme-buttons').addEventListener('click', (e) => { if(e.target.tagName === 'BUTTON') { settings.theme = e.target.dataset.theme; applyAllSettings(); saveSettings(); } });
         $('#layout-buttons').addEventListener('click', async (e) => { if(e.target.tagName === 'BUTTON') { settings.layout = e.target.dataset.layout; if (rendition) rendition.flow(settings.layout === 'scroll' ? 'scrolled-doc' : 'paginated'); if (currentBookType === 'txt') { if (settings.layout === 'paginate') { await paginateAndDisplayTxt(); } else { txtContent.innerHTML = fullTxtHtml; } } applyAllSettings(); saveSettings(); } });
         $('#add-font-btn').addEventListener('click', () => loadAndAddFont($('#custom-font-name').value.trim(), $('#custom-font-url').value.trim()));
-        $('#font-file-input').addEventListener('change', e => { const file = e.target.files[0]; if(file) { const reader = new FileReader(); reader.onload = (evt) => loadAndAddFont(file.name.split('.').slice(0, -1).join('.'), evt.target.result, false); reader.readAsDataURL(file); } });
+        
+        // === 修改：字体上传改为存入 IndexedDB ===
+        $('#font-file-input').addEventListener('change', e => { 
+            const file = e.target.files[0]; 
+            if(file) { 
+                const name = file.name.split('.').slice(0, -1).join('.');
+                const reader = new FileReader(); 
+                reader.onload = async (evt) => {
+                    try {
+                        // 1. 存入数据库
+                        await saveFontToDB({ name: name, content: evt.target.result });
+                        // 2. 创建 Blob URL 并应用 (save=false 因为已经存入DB，不需要存入 settings)
+                        const blob = new Blob([evt.target.result]);
+                        const blobUrl = URL.createObjectURL(blob);
+                        loadAndAddFont(name, blobUrl, false);
+                        alert(`字体 "${name}" 已保存并应用！`);
+                    } catch (err) {
+                        alert("字体保存失败: " + err);
+                    }
+                }; 
+                // 注意：这里改成了 readAsArrayBuffer
+                reader.readAsArrayBuffer(file); 
+            } 
+        });
+        // === 修改结束 ===
+
         $('#add-bg-url-btn').addEventListener('click', () => { const url = $('#bg-url-input').value.trim(); if(url) { const name = prompt("背景命名：", "背景" + (settings.customBgs.length + 1)); if (name) addCustomBg(name, url); } });
         $('#bg-file-input').addEventListener('change', e => { const file = e.target.files[0]; if(file) { const name = prompt("背景命名：", file.name.split('.')[0]); if(name) { const reader = new FileReader(); reader.onload = (evt) => addCustomBg(name, evt.target.result); reader.readAsDataURL(file); } } });
         bgSelect.addEventListener('change', e => { settings.customBgs.forEach(b => b.active = (b.name === e.target.value)); applyAllSettings(); saveSettings(); });
@@ -384,8 +892,27 @@
         document.addEventListener('keydown', (e) => { if ($('.panel.open') || $('#search-bar.open input:focus') || $('#modal-overlay').style.display === 'flex') return; if (e.key === 'ArrowRight') nextPage(); else if (e.key === 'ArrowLeft') prevPage(); });
         
         // Initialize the database then load settings
-        initDB().then(() => {
+        initDB().then(async () => {
             loadSettings();
+            
+            // === 新增：启动时从数据库加载字体 ===
+            try {
+                const storedFonts = await getAllFontsFromDB();
+                if (storedFonts && storedFonts.length > 0) {
+                    storedFonts.forEach(font => {
+                        // 将二进制数据转换为浏览器可用的 Blob URL
+                        const blob = new Blob([font.content]);
+                        const blobUrl = URL.createObjectURL(blob);
+                        // 加载字体，参数 false 表示不再重复保存到 LocalStorage
+                        loadAndAddFont(font.name, blobUrl, false);
+                    });
+                    console.log(`已恢复 ${storedFonts.length} 个本地字体`);
+                }
+            } catch (e) {
+                console.error("恢复字体失败:", e);
+            }
+            // === 新增结束 ===
+
         }).catch(error => {
             console.error(error);
             alert("无法初始化本地数据库，本地书籍保存功能将不可用。");
